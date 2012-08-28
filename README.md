@@ -18,6 +18,11 @@ _____________________
 - 6 Importing from other revision control systems (__未翻译__)
 - 7 See also (__未翻译__)
 
+#### 致谢 ####
+感谢以下同学提交的纠错信息：
+
+- [yiwu1](https://github.com/yiwu1) ([@crystal御水湾](http://www.weibo.com/u/2950706582))
+
 #### 其他 ####
 _____________________
 受限于本人英语水平及Git知识，翻译中可能有很多地方会有不准确，甚至错误出现。如你发现类似问题可以直接联系我，但是更推荐你能fork此repo，以Pull Request的方式提交修改。
