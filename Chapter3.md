@@ -115,3 +115,55 @@ ____________________
 
 ### 为什么diff/log操作不显示颜色呢，即使我已经启用了颜色输出？###
 ____________________
+使用`git config`设置core.pager = less -FXRS来解决这个问题。最有可能的原因是LESS环境变量的设置。默认情况下git会向less传递参数-FXRS。-R选项会通知less将输入中的颜色标示转义。但如果环境中设置LESS变量，那么之后该变量中的参数会传递给less程序。
+
+### 为什么`git diff`有时会列出一个没有修改过的文件？###
+____________________
+*git diff and other git operations is optimized so it does not even look at files whose status (size, modification time etc) on disk and in git's index are different. This makes git diff extremely fast for small changes. If the file has been touched somehow, git diff has to look at the content of and compare it which is a much slower operation even when there is in fact no change. git diff lists the files as a reminder that it is not used optimally. Running git status will not only show status, but will also update the index with status for unchanged files disk making subsequent operations, not only diff, much faster. A typical case that causes many files to be listed by diff is running mass editing commands like perl -pi -e '…'.*
+
+### gitk的错误信息"Can't parse git log output:"是什么意思？###
+____________________
+这通常是由于color.diff被设置为true，但gitk只能处理出文本。    
+在1.5.3及之前版本中我们推荐将color.diff设置为off。在需要带颜色的输出时使用`git log --color`。    
+这个问题应该在1.5.4中修复。
+
+### 为什么Cygwin中的gitk显示"git 1316 tty_list::allocate: No tty allocated"？###
+____________________
+这似乎是一个Cygwin的配置问题。请确保你的CYGWIN环境变量中不包括字符串'tty'。
+
+### 为什么git clone，git pull等命令在以sshfs挂载的文件系统上运行时会失败？###
+____________________
+当在一个以sshfs挂载的文件系统上执行git clone或类似命令时会触发一下错误：
+
+>$ git clone foo   
+>Cannot commit config file!    
+>Cannot commit config file!      
+>Cannot commit config file!     
+>Initialized empty Git repository in foo/.git/       
+>294698 blocks      
+>Cannot commit config file!        
+>fatal: Not a valid object name HEAD       
+
+解决这个问题，你需要1）用参数"-o workaround=rename"重新挂载sshfs文件系统，比如：
+
+	sshfs -o workaround=rename login@machine:foo bar
+
+然后2）使用1.6.0.2或以上版本的Git。
+
+### 为什么`git bisect`最后把问题版本定位在我给定的范围以外？###
+____________________
+这可能是由于有的分支在你的正确的提交之前就开始开发，随后又被merge回正确的提交，重新引入了错误代码。    
+
+- [Linus关于此问题的邮件。](http://thread.gmane.org/gmane.comp.version-control.git/99967/focus=99977)
+
+### 为什么会"not on any branch"？###
+____________________
+你在分离头指针状态且有可能会丢失提交。参考关于此问题的[讨论](http://sitaramc.github.com/concepts/detached-head.html)。
+
+### 为什么`git log -S`不显示所有的提交？###
+____________________
+`git log -Ssearchstring`的功能不是在每次提交的diff中查找searchstring字符串，而是查找serachstring字符串在文件中的出现次数是否改变。    
+要查看searchstring字符串出现在被修改行中的提交，使用`git log -Gsearchstring`命令。    
+如果你想查看所有diff输出中包含searchstring字符串的提交，可以使用下面的小脚本：
+
+	git log -p -z | perl -ln0e 'print if /[+-].*searchedstring/'   
