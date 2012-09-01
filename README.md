@@ -13,7 +13,7 @@ _____________________
 - 1 General Questions (_已翻译，待校稿_)
 - 2 Features (_已翻译，待校稿_)
 - 3 Unexpected behavior (已翻译，待校稿)
-- 4 How do I ... (__未翻译__)
+- 4 How do I ... (__进行中__)
 - 5 Error diagnostic (__未翻译__)
 - 6 Importing from other revision control systems (__未翻译__)
 - 7 See also (__未翻译__)
