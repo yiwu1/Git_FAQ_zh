@@ -163,3 +163,134 @@ __________________
 - 参考[git-ls-files](http://www.kernel.org/pub/software/scm/git/docs/git-ls-files.html)的man文档中"Exclude Patterns"一节。
 
 ### 如何让Git忽略已经track的文件？###
+__________________
+这种情况通常发生一个项目中的示例配置文件上，你可能想在他本地的代码库中修改这个文件但又不想提交这些更改更不想将这些更改与他人共享。但是如果你不提交这些change，那么这些change会在每次你运行`git diff`时被显示出来，而且还很容易被一个不经意的`git commit -a`或是`git add -u`添加到代码仓库中。    
+要避免这个问题有3种解决方案：
+
+- 方案1 将配置文件重命名为config.template。然后告诉用户使用它作为示例配置文件。
+- 方案2 允许在其他文件中修改配置。比如，在Makefile中可以加参数-include config.mak来允许用户在config.mak文件中写入定制的配置。
+- 方案3 使用Git来忽略这些配置文件。没有一种能实现是可以通过仓库共享给所有用户的，你只能在每个本地仓库中实现这个效果。你可以使用`git update-index --assume-unchanged <file>`或是sparse checkout([参考git-read-tree中相关章节(http://www.kernel.org/pub/software/scm/git/docs/git-read-tree.html)])来达到目的。需要注意的是设计这些命令的初衷并不是为了解决这个问题，因此，小心点。
+
+### 如何临时保存一些本地修改？###
+__________________
+有时你需要将一些当前分支上未提交的change放在一边，去到另外一个分支上进行开发。但是由于某些原因，你暂时还不想将这些change提交。    
+在最近版本的Git中，你可以使用`git stash`临时保存修改，稍后在使用`git stash apply`重新应用这些修改。    
+此外，   
+你还可以创建一个临时分支来保存这些修改：
+
+	$ git checkout -b tempBranch
+	$ git commit -a -m "to test"
+	
+另外一个方法就是把这些修改保存成一个patch文件：
+
+	$ git diff --binary HEAD > tempPatch.diff
+	$ git reset --hard
+	
+### 当Git无法检测到rename时，如何手工解决冲突？###
+__________________
+当你修改了一系列文件，但merge却因为不能正确检测rename而无法自动解决冲突时，该如何做呢？假设你有一个util/endian.h文件，在开发过程中，你将它移动到src/util/endian.h，而你的同事继续使用util/endian.h。终于，要merge两个分支的时刻到了，有时git的recursive merge策略可以检测到你移动了文件，并将你同事在util/endian.h上的修改merge到src/util/endian.h。但事情并不总是这么顺利，Git可能会认为你删除了util/endian.h并创建了一个不相关的src/util/endian.h文件。你会得到一个util/endian.h上的冲突信息"your side removed, other side modified"。    
+首先使用`git ls-files --unmerged`查看哪些文件有冲突。然后你就可以看到每个stage状态下的blob对象的ID.stage1来自common ancestor，stage3来自你同事的分支。当这种类型的冲突发生时，你不会看到stage2.因为Git认为你将util/endian.h文件删除了：
+>$ git ls-files --unmerged --abbrev    
+>…   
+>100755 33cd1f76... 1 util/endian.h     
+>100755 7f531bb7... 3 util/endian.h    
+
+接着在这些文件之间手工merge：   
+>$ git cat-file blob 33cd1f76 >endian.h-1     
+>$ git cat-file blob 7f531bb7 >endian.h-3      
+>$ merge src/util/endian.h endian.h-1 endian.h-3      
+
+当然你可以使用任何其他的三方合并工具，比如Ediff3，vimdiff/gvimdiff，Meld，xxdiff或KDiff3。在新版本的Git中，你可以使用"<stage>:<filename>"格式的字符串替换通过blob ID解压出来的临时文件。      
+一旦你完成合并得到了你需要版本的src/util/endian.h，你就可以通知Git这个文件被重命名了。在我们的例子中可以使用以下两个命令：
+
+	git update-index --remove util/endian.h
+	git update-index src/util/endian.h
+	
+### 如何将文件恢复到当前提交中的版本？###
+__________________
+如果你将一个文件搞乱了，或者不小心删掉了，你想将这个文件恢复到当前提交中的版本，你可以使用:
+
+	git checkout HEAD -- <file>
+	
+如果你想恢复到index中该文件的版本，你可以：
+
+	git checkout -- <file>
+	
+### 如何查看一个较早版本的文件或目录？###
+__________________
+使用`git show`命令：
+
+	git show <commit>:path/file
+	
+<commit>可以使提交ID，分支名，tag等。如果你不指定文件名，它会输出指定提交下顶层目录树中的内容。一些命令示例：   
+
+	git show v1.4.3:git.c   
+	git show f5f75c652b9c2347522159a87297820103e593e4:git.c     
+	git show HEAD~2:git.c     
+	git show master~4:      
+	git show master~4:doc/     
+	git show master~4:doc/ChangeLog      
+
+### 如何修改仓库中某个提交的提交日期？###
+__________________
+如果你想修改HEAD的提交日期，最简单的方法是使用下面的命令：      
+
+	$ git commit --amend --date='<see documentation for formats>' -C HEAD
+
+你可以使用date命令方便的得到新的时间：
+
+	$ current_date=$(git log -1 --format=format:%ai)
+	$ new_date=$(date -d "$current_date - 1 hour - 22 minutes" --rfc-2822)
+	$ git commit --amend --date="$new_date" -C HEAD	
+如果你还想设置一个新时区，那么你还要设置TZ这个环境变量。如果要将时区改为太平洋时间，你需要将new_date=…一行改为：
+
+	$ new_date=$(TZ=:US/Pacific date -d "$current_date - 1 hour - 22 minutes" --rfc-2822)
+	
+如果你只是想修改一下时区，那么使用Git内部保存时间时使用的Unix时间戳格式会更简单。比如，如果你要HEAD中提交时间的时区为UTC，你可以：
+
+	$ current_date=$(git log -1 --format=format:%at)
+	$ git commit --amend --date="$new_date +0000" -C HEAD
+	
+你可以像下面这样将Unix时间戳传递给date命令：
+
+	$ current_date=$(git log -1 --format=format:%at)
+	$ TZ=:US/Pacific date -d @1301500895
+	Wed Mar 30 09:01:35 PDT 2011
+	
+如果你不记得当前的时区，没关系，问问date命令：
+
+	$ date +%z
+	+0000
+	
+如果你想知道当前时区和某个时区(比如美国太平洋时间)的时差，试试下面的命令：
+
+	$ TZ=:US/Pacific date +%z
+	<either -0700 or -0800 depending on the current date>
+	$ TZ=:US/Pacific date -d 2011-01-01 +%z
+	-0800
+	$ TZ=:US/Pacific date -d 2011-08-01 +%z
+	-0700
+	
+如果你想修改某个HEAD的父提交，只需使用`git bisect -i`来选择在rebase时你想暂停下来修改的提交。如果你需要一个更正式的方式，你可以使用x指令来为`git rebase -i`设置在指定提交上执行的命令。以下是使用`git fileter-branch`命令来实现此操作的脚本：
+
+	#!/bin/sh
+	# Rewrite all branches to modify the date of one specific commit in a repo.
+	# Sample date format: Fri Jan 2 21:38:53 2009 -0800
+	# ISO8601 and RFC822 dates will also work.
+	# Note: filter-branch is picky about the commit argument. As of 1.7.0.4
+	# a hex ID will work, the symbolic revision HEAD will fail silently,
+	# and the usability of more exotic rev specs was not tested by the author.
+	# Copyright (c) Eric S. Raymond, 2010-08-01. BSD terms apply (if anybody really thinks that this script is long and non-obvious enough to fall under copyright law).
+	#
+	commit="$1"
+	date="$2"
+	git filter-branch --env-filter \
+    	"if test \$GIT_COMMIT = '$commit'
+     		then
+     			export GIT_AUTHOR_DATE
+	           export GIT_COMMITTER_DATE
+         		GIT_AUTHOR_DATE='$date'
+		       GIT_COMMITTER_DATE='$date'
+     	 fi" &&
+	rm -fr "$(git rev-parse --git-dir)/refs/original/"
+	
